@@ -7,6 +7,8 @@ import struct
 import logging
 import logging
 from binascii import hexlify
+from uu import decode
+
 from crcmod.predefined import Crc
 from bleak import BleakScanner, BleakClient
 
@@ -113,32 +115,64 @@ class WeebillS:
         logger.info(f"with data: {data}")
 
     async def connect(self):
+        """Connects to the gimbal and sets up notifications."""
         await self.client.connect()
         logger.info(f"Connected: {self.client.is_connected}")
-        logger.info(self.client.__dict__)
 
-        # Get the required characteristics
+        # Discover characteristics
         for service in self.client.services:
-            logger.info(f"Service: {service}")
             for char in service.characteristics:
-                logger.info(f"Characteristic: {char.uuid} - {char.properties}")
                 if "write-without-response" in char.properties:
                     self.characteristic_write_without_response = char.uuid
-                    print(f"Characteristic Write Without Response: {char.uuid}")
                 if "notify" in char.properties:
                     self.characteristic_notify = char.uuid
 
-        logger.info(f"Write Without Response: {self.characteristic_write_without_response}")
-        logger.info(f"Notify: {self.characteristic_notify}")
+        if self.characteristic_notify:
+            await self.client.start_notify(self.characteristic_notify, self.notification_handler)
+            logger.info("Started notifications for battery level")
+        else:
+            logger.error("Notification characteristic not found")
 
 
     async def disconnect(self):
         await self.client.disconnect()
         logger.info(f"Disconnected: {self.client.is_connected}")
 
+    # Pan methods
+    async def pan_right(self):
+        # last byte is 01 for clockwise, 11 for anti-clockwise
+        data = await self.generate_command(Command.PAN, [0x10, 0xc2, 0x11])
+        await self.send_command(data)
 
-    def __exit__(self):
-        asyncio.run(self.disconnect())
+    async def pan_left(self):
+        # last byte is 01 for clockwise, 11 for anti-clockwise
+        data = await self.generate_command(Command.PAN, [0x10, 0xc2, 0x01])
+        await self.send_command(data)
+
+    # Tilt methods
+    async def tilt_up(self):
+        # last byte is 01 for down, 11 for up
+        data = await self.generate_command(Command.TILT, [0x10, 0xc2, 0x11])
+        await self.send_command(data)
+
+    async def tilt_down(self):
+        # last byte is 01 for down, 11 for up
+        data = await self.generate_command(Command.TILT, [0x10, 0xc2, 0x01])
+        await self.send_command(data)
+
+    # TODO roll doesnt work
+    # Roll methods
+    async def roll_right(self):
+        # last byte is 01 for clockwise, 11 for anti-clockwise
+        data = await self.generate_command(Command.ROLL, [0x10, 0xc2, 0x11])
+        await self.send_command(data)
+
+    async def roll_left(self):
+        # last byte is 01 for clockwise, 11 for anti-clockwise
+        data = await self.generate_command(Command.ROLL, [0x10, 0xc2, 0x01])
+        await self.send_command(data)
+
+
 
 
 
