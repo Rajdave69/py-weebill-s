@@ -101,10 +101,10 @@ class WeebillS:
 
         logging.info(f"-> cmd=0x{command:02X} data={to_hex(data)} ({to_hex(output)})")
 
-        print(output)
+        # print(output)
         # format output as hex string
         hex_output = hexlify(bytes(output)).decode()
-        print(f"Hex output: {hex_output}")
+        # print(f"Hex output: {hex_output}")
 
         return output
 
@@ -171,6 +171,36 @@ class WeebillS:
         # last byte is 01 for clockwise, 11 for anti-clockwise
         data = await self.generate_command(Command.ROLL, [0x10, 0xc2, 0x01])
         await self.send_command(data)
+
+    async def read_battery(self):
+        """Sends the command to read battery and listens for response."""
+        data = await self.generate_command(Command.GET_BATTERY_SET_TILT_POS, NO_ARGUMENT)
+        await self.send_command(data)
+
+        await asyncio.sleep(1)  # Allow some time for response
+
+        # if self.characteristic_notify:
+            # response = await self.client.read_gatt_char(self.characteristic_notify)
+            # await self.notification_handler(self.characteristic_notify, response)
+
+    async def notification_handler(self, sender, data):
+        """Handles notifications from the gimbal."""
+        # logger.info(f"Notification from {sender}: {hexlify(data).decode()}")
+
+        decoded_data = hexlify(data).decode()
+        # print(f"Decoded data: {decoded_data}")
+
+        # Heartbeat message (ignore)
+        if decoded_data.startswith("243e0c001815"):
+            return
+
+        if decoded_data.startswith("243c08001812"):
+            # 01/10
+            if decoded_data[14:16] == "10":
+                # command 06 for battery lvl
+                if decoded_data[16:18] == "06":
+                    pass
+                    # print(decoded_data)
 
 
 
